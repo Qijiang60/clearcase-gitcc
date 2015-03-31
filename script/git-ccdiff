@@ -1,0 +1,99 @@
+#!/usr/bin/env perl
+#Author: Y.Chevallier <nowox@x0x.ch>
+#Date:   2015-03-26 Thu 12:46 PM
+use 5.010;
+use strict;
+use warnings;
+use Pod::Usage;
+use Getopt::Long qw(:config no_ignore_case bundling);
+use ClearCase::Gitcc;
+
+# Process command line options
+my $action = undef;
+
+Getopt::Long::Configure("pass_through");
+GetOptions(
+   'stat'      => sub{ $action = 'stat'},
+   'name-only' => sub{ $action = 'name-only'},
+   'h'         => \&help,
+   'version'  => sub { say basename($0), "version ".Gitcc::version(); exit 0 },
+) or pod2usage("Try --help for usage information");
+
+# We want to pass the remaining @ARGS to diff. We must check if there are invalid options
+`git diff --no-index @ARGV -- /dev/null /dev/null`;
+exit($?) if($? eq 32768 or $? eq -1);
+
+# Scan directories
+my %list  = Gitcc::scrutinize();
+
+# Get the longest filename
+my $width = do {
+    my $max = 0;
+    $max = (length $_ > $max)?length $_:$max for (grep $list{$_}{status} ne '=', keys %list);
+    $max;
+};
+
+# Do the job
+my ($n, $insert, $delete) = (0,0,0);
+foreach my $file (sort keys %list) {
+    my $remote = Gitcc::ccpath($file);
+    my $local  = Gitcc::gitpath($file);
+    given($action) {
+        when('stat') {
+            given($list{$file}{status}) {
+                when('>') {
+                    say sprintf(" %-${width}s", $file), ' | ', "only on ClearCase";
+                }
+                when('<') {
+                    say sprintf(" %-${width}s", $file), ' | ', "only on Git";
+                }
+                when('+') {
+                    my $diff = `git -c color.ui=always diff --stat --stat-graph-width=$width --no-index @ARGV -- $local $remote 2>&1`;
+                    $diff =~ /\|(.*)$/gm;
+                    say sprintf(" %-${width}s", $file), ' |', $1;
+                    if($diff =~ /\d+.*(\d+).*(\d+).*$/) {
+                        $insert += $1;
+                        $delete += $2;
+                        $n++;
+                    }
+                }
+            }
+        }
+        when('name-only') {
+            say $file unless $list{$file}{status} eq '=';
+        }
+        default {
+            given($list{$file}{status}) {
+                when('>') {
+                    system("git diff --no-index $local /dev/null");
+                }
+                when('<') {
+                    system("git diff --no-index /dev/null $remote");
+                }
+                when('+') {
+                    system("git diff --no-index $local $remote");
+                }
+            }
+        }
+    }
+}
+
+say " $n file".(($n > 1)?'s':'')." changed,".
+    " $insert insertion".(($insert > 1)?'s':'')."(+),".
+    " $delete deletion".(($delete > 1)?'s':'')."(-)\n" if $action eq 'stat';
+
+sub help {
+    say <<"END_OF_HELP";
+Usage: $0 [OPTION]... [VERSION]";
+
+      --stat      Similar to git diff --stat but with the ClearCase view
+      --name-only Similar to git diff --name-only but with the ClearCase view
+
+ -v   --version   Script version
+ -h               Print this help
+
+Author: Yves Chevallier (YCH) <nowox\@x0x.ch>
+END_OF_HELP
+    exit 0;
+}
+

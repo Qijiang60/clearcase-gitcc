@@ -1,0 +1,60 @@
+#!/usr/bin/env perl
+#Author: Y.Chevallier <nowox@x0x.ch>
+#Date:   2015-03-30 Mon 03:19 PM
+use 5.010;
+use strict;
+use warnings;
+use Pod::Usage;
+use Getopt::Long qw(:config no_ignore_case bundling);
+use ClearCase::Gitcc;
+
+# Parse command line options
+GetOptions(
+   'm|comment=s' => sub {Gitcc::comment(shift)},
+   'c|checkin'   => sub {Gitcc::checkin_flag(1)},
+   'dry-run'     => sub {Gitcc::dry_run(1)},
+   'v|verbose'   => sub {Gitcc::verbose(1)},
+   'h'           => \&help,
+   'version'     => sub { say basename($0), "version ".Gitcc::version(); exit 0 },
+) or pod2usage("Try --help for usage information");
+
+# Need to check things first
+Gitcc::check(git_clean => 1, cc_clean => 1);
+
+# Do the job
+my %list = Gitcc::scrutinize();
+foreach my $file (sort keys %list) {
+    given($list{$file}{status}) {
+        when('<') {
+            Gitcc::cp2cc($file);
+            Gitcc::cc_add($file);
+        }
+        when('>') {
+            Gitcc::cc_rm($file);
+        }
+        when('+') {
+            Gitcc::cc_checkout($file);
+            Gitcc::cp2cc($file);
+            Gitcc::cc_checkin($file);
+        }
+    }
+}
+print "\n";
+
+# Help
+sub help {
+    say <<"END_OF_HELP";
+Usage: $0 [OPTION]... [VERSION]";
+ -m   --comment=  ClearCase checkin/checkout comment
+      --dry-run   Do no modify anything on Clearcase
+
+ -v   --verbose   More to display
+      --version   Script version
+ -h               Print this help
+
+Author: Yves Chevallier <nowox\@x0x.ch>
+END_OF_HELP
+    exit 0;
+}
+
+

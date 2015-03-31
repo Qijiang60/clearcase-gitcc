@@ -1,0 +1,53 @@
+#!/usr/bin/env perl
+#Author: Y.Chevallier <nowox@x0x.ch>
+#Date:   2015-03-26 Thu 05:08 PM
+use 5.010;
+use strict;
+use warnings;
+use Pod::Usage;
+use Getopt::Long qw(:config no_ignore_case bundling);
+use ClearCase::Gitcc;
+             
+# Parse command line options
+GetOptions(
+   'h'         => \&help,
+   'v|verbose' => sub {Gitcc::verbose(1)},
+   'version'   => sub { say basename($0), "version ".Gitcc::version(); exit 0 },
+) or pod2usage("Try --help for usage information");
+
+# Need to check things first
+Gitcc::check(git_clean => 1);
+
+# Do the job
+my %list = Gitcc::scrutinize();
+
+use Data::Dumper;
+foreach my $file (sort keys %list) {
+    given($list{$file}{status}) {
+        when('<') { # Only on git
+            Gitcc::git_rm($file);
+        }
+        when('>') { # Only on cc
+            Gitcc::cp2git($file);
+            Gitcc::git_add($file);
+        }
+        when('+') { # Differ
+            Gitcc::cp2git($file);
+            Gitcc::git_add($file);
+        }
+    }
+}
+
+# Display the help
+sub help {
+    say <<"END_OF_HELP";
+Usage: $0 [OPTION]... [VERSION]";
+
+ -v   --version   Script version
+ -h               Print this help
+
+Author: Yves Chevallier <nowox\@x0x.ch>
+END_OF_HELP
+    exit 0;
+}
+
