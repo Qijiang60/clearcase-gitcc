@@ -1,5 +1,5 @@
 #Git-clearcase
-It is a simple bridge between base ClearCase and Git. Like [charleso][1] I wrote this to calm my
+It is a simple bridge between base ClearCase and Git. Like [charleso](https://github.com/charleso/git-cc) I wrote this to calm my
 nerves while using ClearCase and Git. Almost everything is held by two additional git commands `git ccpush` and `git ccpull`
 
     +-------+  ccpush  +-----------+
@@ -122,7 +122,4 @@ It is now time to push your changes on ClearCase. This operation should be as sh
     ccpull          ccpull   ccpush   
 
 ##Thanks
-I would like to thanks VonC from StackOverflow that helped me to find my way with ClearCase, especially on this workflow [question][2].
-
-[1] https://github.com/charleso/git-cc
-[2] http://stackoverflow.com/questions/28280685/toward-an-ideal-workflow-with-clearcase-and-git
+I would like to thanks VonC from StackOverflow that helped me to find my way with ClearCase, especially on this workflow [question](http://stackoverflow.com/questions/28280685/toward-an-ideal-workflow-with-clearcase-and-git).
