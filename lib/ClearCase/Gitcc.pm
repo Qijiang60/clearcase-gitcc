@@ -99,8 +99,12 @@ $cfg{ccview} = $cc->argv('pwv -s')->qx ||
 
 # Ensure both ClearCase directory and Git directory have a common basename
 my ($basename) = $cfg{gitdir} =~ /(\w+)\/?$/;
-error ("No common basename '$basename' found in between '$cfg{ccdir}' and '$cfg{gitdir}'")
-    unless $cfg{ccdir} =~ /$cfg{ccview}.*$basename\/?$/;
+if ($cfg{ccview} eq $basename) {
+    error ("You cannot work outside from VOB. '$basename' is not located inside a VOB");
+}
+if (not $cfg{ccdir} =~ /$cfg{ccview}.*$basename\/?$/) {
+    error ("No common basename '$basename' found in between '$cfg{ccdir}' and '$cfg{gitdir}'");
+}
 
 
 # Get the last git comment by default
