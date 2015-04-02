@@ -34,9 +34,11 @@ The last command will link your local Git repository with ClearCase.
 
 You might want to add some ignored files to your `.gitignore`:
 
-    echo "**/*.keep"    >> .gitignore
-    echo "**/*.contrib" >> .gitignore
-
+    echo "**/*.keep"      >> .gitignore
+    echo "**/*.contrib"   >> .gitignore
+    echo "**/*.keep.*"    >> .gitignore
+    echo "**/*.contrib.*" >> .gitignore
+    
 Notice that you can also mask files and folders that you want to let untouched on ClearCase.
 
 From this it is now possible to retrieve the ClearCase view
