@@ -69,7 +69,7 @@ The suggested workflow start with a cc branch which is the local mirror to your 
 
 -
 
-    o---o (master)
+     o---o (master)
       \ /
        o (cc)
       /
