@@ -65,7 +65,7 @@ The suggested workflow start with a cc branch which is the local mirror to your 
     git ccpull
     git commit -m "Imported from ClearCase"
     git checkout master
-    git merge --no-fs cc
+    git merge --no-ff cc
 
 -
 
@@ -91,7 +91,7 @@ A some point, you want to synchronize your local copy with the ClearCase version
     git ccpull
     git commit -m "Imported from ClearCase"
     git checkout master
-    git merge --no-fs cc
+    git merge --no-ff cc
 
 -
 
@@ -108,7 +108,7 @@ It is now time to push your changes on ClearCase. This operation should be as sh
     git checkout cc
     git ccpull
     git commit -m "Imported Changes "
-    git merge --no-fs master
+    git merge --no-ff master
     git ccpull --checkin
 
 -
