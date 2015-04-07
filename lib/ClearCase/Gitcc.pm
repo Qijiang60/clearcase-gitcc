@@ -273,7 +273,7 @@ sub cp {
     }
     elsif (-f $src) {
         make_path(dirname($dst)) unless -e dirname($dst);
-        copy($src, $dst);
+        File::Copy::cp($src, $dst); # Preserve permission with umask
     }
     else {
         say "Error: Unknown error" and exit -1;
