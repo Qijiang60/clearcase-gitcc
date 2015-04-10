@@ -7,22 +7,44 @@ use warnings;
 use Pod::Usage;
 use Getopt::Long qw(:config no_ignore_case bundling);
 use ClearCase::Gitcc;
-             
+use Term::ANSIColor;
+use POSIX qw(SIGINT);
+$SIG{INT} = \&stop;
+
 # Parse command line options
+my $verbose = 0;
 GetOptions(
    'h'         => \&help,
-   'v|verbose' => sub {Gitcc::verbose(1)},
+   'v|verbose' => sub {$verbose = 1; Gitcc::verbose(1)},
    'version'   => sub { say basename($0), "version ".Gitcc::version(); exit 0 },
 ) or pod2usage("Try --help for usage information");
 
 # Need to check things first
 Gitcc::check(git_clean => 1);
 
-# Do the job
+# List the files in both ClearCase and Git
 my %list = Gitcc::scrutinize();
 
-use Data::Dumper;
+# Ensure that all .gitignore are retrived before anything else
+my $reparse = 0;
+foreach my $file (grep /[.]gitignore/, sort keys %list) {
+    # For instance, during the initial import, all .gitignore are inexistant on Git.
+    # Thus, the above %list is wrong because it does not take in account ignored files. 
+    # So if a .gitignore is only present on CC or has been changed on CC, we sync them 
+    # first.
+    next unless $list{$file}{status} =~ '>|\+';
+    Gitcc::cp2git($file);
+    Gitcc::git_add($file);
+    delete $list{$file};
+    $reparse = 1;
+}
+Gitcc::removeIgnored(\%list) if $reparse;
+
+# Do the job
+my $n = 0 + keys %list;
+my $i = 1;
 foreach my $file (sort keys %list) {
+    print colored("[$i/$n] ", 'green') if $verbose > 0; $i++;
     given($list{$file}{status}) {
         when('<') { # Only on git
             Gitcc::git_rm($file);
@@ -38,6 +60,13 @@ foreach my $file (sort keys %list) {
     }
 }
 
+# Stop the execution
+sub stop
+{
+    print "\n caught $SIG{INT}",@_,"\n";
+    exit -1;
+}
+
 # Display the help
 sub help {
     say <<"END_OF_HELP";
@@ -50,4 +79,3 @@ Author: Yves Chevallier <nowox\@x0x.ch>
 END_OF_HELP
     exit 0;
 }
-
