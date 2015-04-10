@@ -47,6 +47,7 @@ use Term::ANSIColor;
 use File::Copy;
 use File::Path qw(make_path);
 use Array::Utils qw(:all);
+use Argv;
 
 my %cfg = (
     comment => '',
@@ -78,6 +79,12 @@ $cfg{ccdir} = `git config --get clearcase.remote` ||
     error("Git config variable 'clearcase.remote' has a null value");
 chomp $cfg{ccdir};
 
+# Convert DOS/Windows path to POSIX if required
+if ($cfg{ccdir} =~ /^[a-z]:\\/i) {
+    $cfg{ccdir} = `cygpath "$cfg{ccdir}"`;
+    chomp $cfg{ccdir};
+}
+
 # Check if the above destination exists
 if (not -d $cfg{ccdir}) {
     # Weak attempt to start the view on the MVFS mount
@@ -106,7 +113,6 @@ if (not $cfg{ccdir} =~ /$cfg{ccview}.*$basename\/?$/) {
     error ("No common basename '$basename' found in between '$cfg{ccdir}' and '$cfg{gitdir}'");
 }
 
-
 # Get the last git comment by default
 if (not $git->command('status') =~ /Initial commit/ and length $cfg{comment} eq 0) {
     $cfg{comment} = $git->command_oneline('log', '--format=%B', '-n1', 'HEAD')
@@ -128,9 +134,12 @@ my %data = (
 );
 
 sub scrutinize {
+    my $force = shift;
+
     # Look on both Git and ClearCase and establish the status for each file.
     %data = ();
     state $done = 0;
+    $done = 0 if defined $force and $force eq 1;
     return if $done;
 
     # Step one: start with git
@@ -151,16 +160,7 @@ sub scrutinize {
     }
 
     # Remove ignored files from the hash
-    notice("Removing ignored files according to .gitignore...");
-    chdir $cfg{gitdir};
-    my $ccfiles = join ' ', keys %data;
-    my @ignored = split('\n', `git check-ignore $ccfiles`);
-    chdir $cfg{ccdir};
-    warning("Some files on ClearCase are masked by .gitignore:") if @ignored > 0;
-    for (@ignored) {
-        delete $data{$_};
-        warning(" -$_");
-    }
+    removeIgnored(\%data);
 
     # Each files that exist on both sides are marked '?'. We then identify if they are
     # '=' equal, or if they differ '+'. In some case, the compare can fail with 'x'
@@ -189,6 +189,21 @@ sub scrutinize {
     }
 
     %data;
+}
+
+sub removeIgnored {
+    my $data = shift;
+
+    notice("Removing ignored files according to .gitignore...");
+    chdir $cfg{gitdir};
+    my $ccfiles = join ' ', keys $data;
+    my @ignored = split('\n', `git check-ignore $ccfiles`);
+    chdir $cfg{ccdir};
+    warning("Some files on ClearCase are masked by .gitignore:") if @ignored > 0;
+    for (@ignored) {
+        delete $data->{$_};
+        warning(" -$_");
+    }
 }
 
 sub dog {
@@ -273,10 +288,14 @@ sub cp {
     }
     elsif (-f $src) {
         make_path(dirname($dst)) unless -e dirname($dst);
-        File::Copy::cp($src, $dst); # Preserve permission with umask
+
+        # Argv is faster than File::Copy
+        my $v = ($cfg{verbose} > 0)?'v':'';
+        my $exit = Argv->new('cp', '-p'.$v, $src, $dst)->system;
+        error("copy failed with exit code $exit") if $exit ne 0; 
     }
     else {
-        say "Error: Unknown error" and exit -1;
+        error("Unknown error");
     }
 }
 
@@ -357,4 +376,3 @@ sub debug   { say shift if $cfg{verbose} > 2  }
 sub error   { say "Error: ".shift and exit -1 }
 
 1;
-
