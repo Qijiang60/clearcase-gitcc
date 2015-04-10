@@ -5,4 +5,6 @@ perl:
   - "5.16"
   - "5.10"
 install:
+  - cpan install ClearCase::Argv
+  - cpan install Git
   - perl Makefile.PL && make install
