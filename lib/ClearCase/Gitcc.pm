@@ -61,7 +61,7 @@ my %cfg = (
 
 ClearCase::Argv->dbglevel( ($cfg{verbose} > 0)? 1 : 0 );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub version { $VERSION }
 
@@ -153,7 +153,14 @@ sub scrutinize {
         s/\\/\//g;  # All files should use forward slash
         s/^\.\///;  # We do not want file to start with ./
         next if -d; # Do not process directories
-        $data{$1}{symlink} = $2 if /^(.*) --> (.*)$/; # Is a symbolic link?
+        if (/^(.*) --> (.*)$/) { # Is a symbolic link?
+            my ($file, $link) = ($1, $2);
+            $link = ccpath(dirname($file)."/$link");
+            while ($link =~ s|[^/]+/\.\./||) {};
+            debug("Symbolic link found '$file' -> '$link'");
+            $data{$file}{symlink} = $link;
+            error("'$link' is not a file") unless -f $link;
+        }
         s/ --> .*$//;
 
         $data{$_}{status} = ($data{$_}{status} and $data{$_}{status} eq '<')?'?':'>';
@@ -225,6 +232,15 @@ sub check {
 
 sub comment {
     $cfg{comment} = shift;
+}
+
+# There is a bug in Argv.pm which does not escape comments that look like redirection i.e.
+# with a > or a < inside. To prevent this issue, we manually escape the comments:
+sub quote_comment {
+    my $comment = shift;
+    $comment =~ s/'/'\\''/g;
+    $comment = "'$comment'";
+    $comment;
 }
 
 sub verbose {
@@ -302,14 +318,8 @@ sub cp {
 # Copy a file from Git to ClearCase
 sub cp2cc {
     my $file = shift;
-    my $ccpath = ccpath($file);
-
-    # Here we need to check if the file is a symbolink link. If this is the case,
-    # we need to copy it to it's real location
-    $ccpath = ccpath($data{$file}{symlink}) if defined $data{$file}{symlink};
-
     message("Pushing $file");
-    cp(gitpath($file), $ccpath);
+    cp(gitpath($file), ccphysicalpath($file));
 }
 
 # Copy a file from ClearCase to Git
@@ -324,22 +334,23 @@ sub cp2git {
 # ---------------------------------------------------------------------------------------
 sub cc_checkout {
     dog();
-    my $file = ccpath(shift);
+    my $file = ccphysicalpath(shift);
     if($cfg{dry_run}) {
         say "Checkout $file";
     } else {
-        $cc->co($file)->comment($cfg{comment})->system;
+        debug("Checkouting '$file' with comment '$cfg{comment}' ...\n");
+        $cc->co($file)->comment(quote_comment($cfg{comment}))->system;
     }
 }
 
 sub cc_checkin {
     dog();
     return unless ($cfg{checkin});
-    my $file = ccpath(shift);
+    my $file = ccphysicalpath(shift);
     if($cfg{dry_run}) {
         say "Checkin $file";
     } else {
-        $cc->ci($file)->comment($cfg{comment})->system;
+        $cc->ci($file)->comment(quote_comment($cfg{comment}))->system;
     }
 }
 
@@ -347,7 +358,7 @@ sub cc_add {
     dog();
     my $file = shift;
     cc_checkout(dirname($file));
-    $cc->mkelem(ccpath($file))->comment($cfg{comment})->system;
+    $cc->mkelem(ccpath($file))->comment(quote_comment($cfg{comment}))->system;
     cc_checkin(dirname($file));
 }
 
@@ -364,8 +375,19 @@ sub cc_isclean {
     return ( (@files > 0)? 0 : 1 );
 }
 
+
+
 # Paths expension
-sub ccpath  { ("$cfg{ccdir}/".shift ) =~ s|/+|/|gr }
+sub ccphysicalpath {
+    my $file = shift;
+
+    if (defined $data{$file}{symlink}) {
+        return $data{$file}{symlink};
+    } else {
+        return ("$cfg{ccdir}/".$file) =~ s|/+|/|gr;
+    }
+}
+sub ccpath  { ("$cfg{ccdir}/".shift)  =~ s|/+|/|gr }
 sub gitpath { ("$cfg{gitdir}/".shift) =~ s|/+|/|gr }
 
 # Warning/Error messages...
