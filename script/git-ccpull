@@ -15,9 +15,11 @@ $SIG{INT} = \&stop;
 my $verbose = 0;
 GetOptions(
    'h'         => \&help,
-   'v|verbose' => sub {$verbose = 1; Gitcc::verbose(1)},
+   'v|verbose' => sub {$verbose++},
    'version'   => sub { say basename($0), "version ".Gitcc::version(); exit 0 },
 ) or pod2usage("Try --help for usage information");
+
+Gitcc::verbose($verbose);
 
 # Need to check things first
 Gitcc::check(git_clean => 1);
@@ -43,8 +45,7 @@ Gitcc::removeIgnored(\%list) if $reparse;
 # Do the job
 my $n = 0 + keys %list;
 my $i = 1;
-foreach my $file (sort keys %list) {
-    print colored("[$i/$n] ", 'green') if $verbose > 0; $i++;
+foreach my $file (sort keys %list) { 
     given($list{$file}{status}) {
         when('<') { # Only on git
             Gitcc::git_rm($file);
