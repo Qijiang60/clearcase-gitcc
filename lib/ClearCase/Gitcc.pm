@@ -51,7 +51,7 @@ use Argv;
 
 my %cfg = (
     comment => '',
-    checkin => 0,
+    checkin => 1, # By default we checkin the pushed files on ClearCase
     verbose => 0, # 0: quiet, 1: verbose, 2: notice, 3: debug, 4: insane
     force   => 0, # In some case we have warnings, we can force actions to be done.
     hard    => 0, # Some time we need to force harder, we can insist with this option.
@@ -169,6 +169,12 @@ sub scrutinize {
     # Remove ignored files from the hash
     removeIgnored(\%data);
 
+    # Exit if no files in %data
+    if(0 + keys %data <= 0) {
+        say "No files found. Nothing to do";
+        exit 0;
+    }
+    
     # Each files that exist on both sides are marked '?'. We then identify if they are
     # '=' equal, or if they differ '+'. In some case, the compare can fail with 'x'
     notice("Comparing files...");
