@@ -4,7 +4,7 @@ nerves while using ClearCase and Git. Almost everything is held by two additiona
 
     +-------+  ccpush  +-----------+
     |       | -------> |           |
-    |  Git  |  ccpull  | ClearCase |
+    |  Git  |  ccfetch | ClearCase |
     |       | <------- |           |
     +-------+          +-----------+
 
@@ -64,7 +64,7 @@ To see the differences with ClearCase, simply use this command. It always work w
 The suggested workflow start with a cc branch which is the local mirror to your ClearCase repository. When merging with this branch, you always favor the --no-fs option to avoid any fast forward merge.
 
     git checkout -b cc
-    git ccpull
+    git ccfetch
     git commit -m "Imported from ClearCase"
     git checkout master
     git merge --no-ff cc
@@ -75,7 +75,7 @@ The suggested workflow start with a cc branch which is the local mirror to your 
       \ /
        o (cc)
       /
-    ccpull
+    ccfetch
 
 From this you will work on your master and eventually use other branches:
 
@@ -85,12 +85,12 @@ From this you will work on your master and eventually use other branches:
      \ /
       o (cc)
      /      
-    ccpull
+    ccfetch
 
 A some point, you want to synchronize your local copy with the ClearCase version.
 
     git checkout cc
-    git ccpull
+    git ccfetch
     git commit -m "Imported from ClearCase"
     git checkout master
     git merge --no-ff cc
@@ -103,15 +103,15 @@ A some point, you want to synchronize your local copy with the ClearCase version
      \ /                 /
       o-----------------o (cc)    
      /                 /
-    ccpull          ccpull
+    ccfetch         ccfetch
 
 It is now time to push your changes on ClearCase. This operation should be as short as possible since you don't want to let others checkin their changes:
 
     git checkout cc
-    git ccpull
+    git ccfetch
     git commit -m "Imported Changes "
     git merge --no-ff master
-    git ccpull --checkin
+    git ccfetch --checkin
 
 -
 
@@ -121,7 +121,7 @@ It is now time to push your changes on ClearCase. This operation should be as sh
      \ /                 / \
       o-----------------o-o-o (cc)
      /                 / /   \
-    ccpull          ccpull   ccpush   
+    ccfetch          ccfetch   ccpush   
 
 ##Thanks
 I would like to thanks VonC from StackOverflow that helped me to find my way with ClearCase, especially on this workflow [question](http://stackoverflow.com/questions/28280685/toward-an-ideal-workflow-with-clearcase-and-git).
